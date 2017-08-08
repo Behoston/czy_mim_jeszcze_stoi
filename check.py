@@ -1,11 +1,14 @@
-import collections
 import poplib
 import time
 
 import paramiko
 import requests
 
+import database
+import models
 from config import PESEL, USERNAME, PASSWORD, CHECK_INTERVAL_SECONDS
+
+DB = database.SQLite()
 
 
 def check_mail() -> bool:
@@ -60,29 +63,28 @@ def check_usos() -> bool:
         return False
 
 
-Status = collections.namedtuple(
-    'Status',
-    ['timestamp', 'mail', 'lab', 'usos', 'ssh'],
-)
-
-
-def is_different(status_1: Status, status_2: Status) -> bool:
+def is_different(status_1: models.Status, status_2: models.Status) -> bool:
     return status_1[1:] != status_2[1:]
 
 
-def get_status() -> Status:
+def get_status() -> models.Status:
     timestamp = int(time.time())
     mail = check_mail()
     lab = check_lk()
     usos = check_usos()
     ssh = check_ssh()
-    return Status(timestamp, mail, lab, usos, ssh)
+    return models.Status(timestamp, mail, lab, usos, ssh)
 
 
-last_status = get_status()
+DB.create_schema()
+last_status = DB.get_last()
+if last_status is None:
+    last_status = get_status()
+    DB.save(last_status)
+
 while True:
     time.sleep(CHECK_INTERVAL_SECONDS)
     actual_status = get_status()
-    print(actual_status)
-    print('Changed?', is_different(actual_status, last_status))
+    if is_different(actual_status, last_status):
+        DB.save(actual_status)
     last_status = actual_status
