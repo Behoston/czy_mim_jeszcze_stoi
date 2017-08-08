@@ -1,5 +1,7 @@
+import collections
 import getpass
 import poplib
+import time
 
 import paramiko
 import requests
@@ -7,6 +9,7 @@ import requests
 PESEL = input('Podaj swój PESEL: ')
 USERNAME = input('Podaj nazwę użytkownika: ')
 PASSWORD = getpass.getpass(prompt='Podaj hasło do students: ')
+CHECK_INTERVAL_SECONDS = 5 * 60
 
 
 def check_mail() -> bool:
@@ -61,7 +64,29 @@ def check_usos() -> bool:
         return False
 
 
-print('Strona labu działa? {}'.format(check_lk()))
-print('Maile działają? {}'.format(check_mail()))
-print('SSH działa? {}'.format(check_ssh()))
-print('USOS działa? {}'.format(check_usos()))
+Status = collections.namedtuple(
+    'Status',
+    ['timestamp', 'mail', 'lab', 'usos', 'ssh'],
+)
+
+
+def is_different(status_1: Status, status_2: Status) -> bool:
+    return status_1[1:] != status_2[1:]
+
+
+def get_status() -> Status:
+    timestamp = int(time.time())
+    mail = check_mail()
+    lab = check_lk()
+    usos = check_usos()
+    ssh = check_ssh()
+    return Status(timestamp, mail, lab, usos, ssh)
+
+
+last_status = get_status()
+while True:
+    time.sleep(CHECK_INTERVAL_SECONDS)
+    actual_status = get_status()
+    print(actual_status)
+    print('Changed?', is_different(actual_status, last_status))
+    last_status = actual_status
