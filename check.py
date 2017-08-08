@@ -1,15 +1,11 @@
 import collections
-import getpass
 import poplib
 import time
 
 import paramiko
 import requests
 
-PESEL = input('Podaj swój PESEL: ')
-USERNAME = input('Podaj nazwę użytkownika: ')
-PASSWORD = getpass.getpass(prompt='Podaj hasło do students: ')
-CHECK_INTERVAL_SECONDS = 5 * 60
+from config import PESEL, USERNAME, PASSWORD, CHECK_INTERVAL_SECONDS
 
 
 def check_mail() -> bool:
