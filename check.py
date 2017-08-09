@@ -1,66 +1,74 @@
+import functools
+import logging
 import poplib
 import time
 
 import paramiko
 import requests
 
+import config
 import database
 import models
-from config import PESEL, USERNAME, PASSWORD, CHECK_INTERVAL_SECONDS
+
+logger = logging.getLogger(__name__)
+if config.DEBUG:
+    logger.setLevel(level=logging.DEBUG)
+else:
+    logger.setLevel(logging.ERROR)
 
 DB = database.SQLite()
 
 
+def check(fn) -> bool:
+    @functools.wraps(fn)
+    def wrapper():
+        try:
+            fn()
+            return True
+        except Exception as e:
+            logger.warning(f'[{fn.__name__}]{e}')
+            return False
+
+    return wrapper
+
+
+@check
 def check_mail() -> bool:
-    try:
-        mServer = poplib.POP3_SSL('students.mimuw.edu.pl')
-        mServer.user(USERNAME)
-        mServer.pass_(PASSWORD)
-        mServer.stat()
-        mServer.quit()
-        return True
-    except:
-        return False
+    mServer = poplib.POP3_SSL('students.mimuw.edu.pl')
+    mServer.user(config.USERNAME)
+    mServer.pass_(config.PASSWORD)
+    mServer.stat()
+    mServer.quit()
 
-
+@check
 def check_lk() -> bool:
-    try:
-        response = requests.get('http://lk.mimuw.edu.pl/')
-        assert response.status_code == 200
-        return True
-    except:
-        return False
+    response = requests.get('http://lk.mimuw.edu.pl/')
+    assert response.status_code == 200
 
 
+@check
 def check_ssh() -> bool:
-    try:
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(
-            hostname='students.mimuw.edu.pl',
-            username=USERNAME,
-            password=PASSWORD,
-        )
-        return True
-    except:
-        return False
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(
+        hostname='students.mimuw.edu.pl',
+        username=config.USERNAME,
+        password=config.PASSWORD,
+    )
 
 
+@check
 def check_usos() -> bool:
-    try:
-        url = 'https://logowanie.uw.edu.pl/cas/login'
-        data = {
-            'username': PESEL,
-            'password': PASSWORD,
-            'execution': 'e1s1',
-            '_eventId': 'submit',
-            'submit': 'ZALOGUJ',
-        }
-        response = requests.post(url, data)
-        assert response.status_code == 200
-        return True
-    except:
-        return False
+    url = 'https://logowanie.uw.edu.pl/cas/login'
+    data = {
+        'username': config.PESEL,
+        'password': config.PASSWORD,
+        'execution': 'e1s1',
+        '_eventId': 'submit',
+        'submit': 'ZALOGUJ',
+    }
+    response = requests.post(url, data)
+    assert response.status_code == 200
 
 
 def is_different(status_1: models.Status, status_2: models.Status) -> bool:
@@ -83,7 +91,7 @@ if last_status is None:
     DB.save(last_status)
 
 while True:
-    time.sleep(CHECK_INTERVAL_SECONDS)
+    time.sleep(config.CHECK_INTERVAL_SECONDS)
     actual_status = get_status()
     if is_different(actual_status, last_status):
         DB.save(actual_status)
