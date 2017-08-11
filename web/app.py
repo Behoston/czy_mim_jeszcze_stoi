@@ -32,6 +32,7 @@ def timectime(s):
 @app.route('/')
 def status_page():
     last_checks = get_last_checks()
+    last_checks = fill_gaps(last_checks)
     fully_operational = is_fully_operational(last_checks[-1])
     return flask.render_template('index.html',
                                  statuses=last_checks,
@@ -50,40 +51,50 @@ def is_fully_operational(status: models.Status) -> bool or None:
 
 
 def get_last_checks(how_many: int = 100) -> [models.Status]:
-    return [get_random_status() for _ in range(how_many)]
     results = []
     cursor = get_db().cursor()
-    after = int(time.time()) - int(config.REFRESH_TIME.total_seconds()) * how_many
     cursor.execute(
         'SELECT timestamp, mail, lab, usos, ssh '
         'FROM status '
-        'WHERE timestamp > ? '
         'ORDER BY timestamp DESC',
-        [after],
     )
     for status in cursor.fetchmany(how_many):
-        results.append(models.Status(*status))
+        results.append(models.Status(status[0], *[bool(e) for e in status[1:]]))
+    results.reverse()
     return results
 
 
-def get_last_status() -> models.Status:
-    cursor = get_db().cursor()
-    cursor.execute('SELECT * FROM status ORDER BY timestamp DESC LIMIT 1')
-    last_status_tuple = cursor.fetchone()
-    if not last_status_tuple:
-        return
-    else:
-        return models.Status(*last_status_tuple)
+def fill_gaps(statuses: [models.Status], how_long: int = 100) -> [models.Status]:
+    filled = []
+    refresh_seconds = int(config.REFRESH_TIME.total_seconds())
+    after = int(time.time()) - refresh_seconds * how_long
+    first_status_index = 0
+    for i, status in enumerate(statuses):
+        if status.timestamp < after:
+            first_status_index = i
+        else:
+            break
+    statuses = statuses[first_status_index:]
+    if after - statuses[0].timestamp > refresh_seconds / 2:
+        statuses[0] = copy_with_new_timestamp(statuses[0], after)
+    while statuses:
+        filled.append(statuses.pop(0))
+        if not statuses:
+            while len(filled) != how_long:
+                filled.append(copy_with_new_timestamp(filled[-1], filled[-1].timestamp + refresh_seconds))
+        else:
+            while statuses[0].timestamp - filled[-1].timestamp > refresh_seconds:
+                filled.append(copy_with_new_timestamp(filled[-1], filled[-1].timestamp + refresh_seconds))
+    return filled
 
 
-def get_random_status() -> models.Status:
-    import random
+def copy_with_new_timestamp(status: models.Status, timestamp: int) -> models.Status:
     return models.Status(
-        timestamp=int(time.time()) - random.randint(0, 100000),
-        mail=bool(random.getrandbits(1)),
-        lab=bool(random.getrandbits(1)),
-        usos=bool(random.getrandbits(1)),
-        ssh=bool(random.getrandbits(1)),
+        timestamp=timestamp,
+        mail=status.mail,
+        lab=status.lab,
+        usos=status.usos,
+        ssh=status.ssh,
     )
 
 
