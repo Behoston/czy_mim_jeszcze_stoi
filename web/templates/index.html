@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% macro progress_component(status, timestamp) -%}
+    <span title="{{ timestamp | ctime }}" class="progress {{ status }}">▒</span>
+{%- endmacro %}
+
+{% block body %}
+    <h1>Czy <b>MIM</b> jeszcze stoi?</h1>
+    {% if fully_operational %}
+        Tak!
+    {% elif fully_operational is none %}
+        Trochę...
+    {% else %}
+        NIE!
+    {% endif %}
+
+
+    <h2>Czy <b>ssh</b> jeszcze stoi?</h2>
+    {% for status in statuses -%}
+        {{ progress_component(status.ssh, status.timestamp) }}
+    {%- endfor %}
+
+    <h2>Czy <b>mail</b> jeszcze stoi?</h2>
+    {% for status in statuses -%}
+        {{ progress_component(status.mail, status.timestamp) }}
+    {%- endfor %}
+
+    <h2>Czy <b>strona lk</b> jeszcze stoi?</h2>
+    {% for status in statuses -%}
+        {{ progress_component(status.lab, status.timestamp) }}
+    {%- endfor %}
+
+
+    <h2>Czy <b>USOS</b> jeszcze stoi?</h2>
+    {% for status in statuses -%}
+        {{ progress_component(status.usos, status.timestamp) }}
+    {%- endfor %}
+
+{% endblock %}

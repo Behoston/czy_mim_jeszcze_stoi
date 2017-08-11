@@ -1,0 +1,16 @@
+body {
+    background: darkblue;
+    color: aqua;
+    font-family: 'Consolas', 'Deja Vu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
+}
+.progress {
+    background: black;
+    overflow-wrap: break-word;
+}
+.progress.True {
+    color: lawngreen;
+}
+
+.progress.False {
+    color: red;
+}
