@@ -40,6 +40,7 @@ def check_mail() -> bool:
     mServer.stat()
     mServer.quit()
 
+
 @check
 def check_lk() -> bool:
     response = requests.get('http://lk.mimuw.edu.pl/')
